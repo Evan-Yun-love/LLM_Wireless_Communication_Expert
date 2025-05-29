@@ -1,2 +1,10 @@
-**# LLM_Wireless_Communication_Expert**
+# **LLM_Wireless_Communication_Expert**
 
+🎯**实现功能：**
+1. 回答通信领域知识
+
+🚩**实现步骤:**
+1. 获取通信知识文档：3GPP协议、通信电子书
+2. 文档读取，数据清洗（用正则），向量化
+3. 构建通信RAG知识库
+4. 根据通信场景，设计提问Propmt、模版
