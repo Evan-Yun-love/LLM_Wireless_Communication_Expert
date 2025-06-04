@@ -90,6 +90,31 @@ def chunks_split(self, text: str) -> List[str]:
         splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=160)
         return splitter.split_text(text)
 ```
-5. 
+5. chunk向量化:
+采用的模型是```all-MiniLM-L6-v2```，比较小型化，直接部署本地。支持中英文。
+```python
+embed_model = HuggingFaceEmbeddings(
+        model_name='../all-MiniLM-L6-v2',
+        model_kwargs={'device': 'cuda'},
+        encode_kwargs={'normalize_embeddings': True}
+    )
+```
+```python
+def chunks_tokenize(self, chunks: List[str], batch_size=256) -> np.ndarray:
+        """将文本块批量转换为向量
+        Args:
+            chunks: 文本块列表
+            batch_size: 批量处理大小（防止内存溢出）
+        Returns:
+            形状为(n_chunks, embedding_dim)的向量矩阵
+        """
+        all_vecs = []
+        # 分批次处理文本块
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i+batch_size]
+            vecs = self.model.embed_documents(batch)
+            all_vecs.append(vecs)
+        return np.vstack(all_vecs)
+```
 
 
