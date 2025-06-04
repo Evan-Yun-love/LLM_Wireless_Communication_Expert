@@ -90,7 +90,7 @@ def chunks_split(self, text: str) -> List[str]:
         splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=160)
         return splitter.split_text(text)
 ```
-5. chunk向量化:
+5. chunk向量化:  
 采用的模型是```all-MiniLM-L6-v2```，比较小型化，直接部署本地。支持中英文。
 ```python
 embed_model = HuggingFaceEmbeddings(
