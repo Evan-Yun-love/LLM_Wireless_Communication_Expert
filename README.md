@@ -116,5 +116,66 @@ def chunks_tokenize(self, chunks: List[str], batch_size=256) -> np.ndarray:
             all_vecs.append(vecs)
         return np.vstack(all_vecs)
 ```
+6. 构建FAISS向量库：
+递归查询目录下的文档，读取pdf,docx，逐文档处理，同时加入重复检测功能，避免多次添加同一文档到向量库中，可以增量、持久化添加索引。
+```python
+def process_documents(self) -> None:
+        """文档处理主流程：遍历目录、处理文档、更新索引"""
+        processed = 0
+        # 递归遍历文档目录
+        for file_path in self.docs_path.rglob('*'):
+            # 跳过非支持格式文件
+            if not file_path.is_file() or file_path.suffix.lower() not in self.SUPPORTED_FORMATS:
+                continue
+            try:
+                print(f"Processing {file_path} ...")
+                docs = self.read_docs(file_path)
+                document_chunks = []
+                chunk_hashes = []
 
+                # 处理单个文档的多个页面内容
+                for doc in docs:
+                    cleaned_text = self.docs_clean(doc.page_content)
+                    chunks = self.chunks_split(cleaned_text)
+                    # 计算哈希值进行重复检测
+                    for chunk in chunks:
+                        h = hashlib.md5(chunk.encode('utf-8')).hexdigest()
+                        if h in self.hash_set:
+                            print(f"Duplicate chunk detected in {file_path}, skipping entire document.")
+                            raise ValueError("Duplicate document")
+                        document_chunks.append(chunk)
+                        chunk_hashes.append(h)
+
+                # 将有效块添加到索引系统
+                if document_chunks:
+                    vectors = self.chunks_tokenize(document_chunks)
+                    # 初始化索引（如果不存在）
+                    if self.index is None:
+                        dim = vectors.shape[1]
+                        self.index = faiss.IndexFlatL2(dim)
+                    self.index.add(vectors.astype('float32'))
+
+                    # 保存元数据和哈希值
+                    for i, chunk in enumerate(document_chunks):
+                        self.metadata_list.append({
+                            "file": str(file_path.relative_to(self.docs_path)),
+                            "chunk_idx": i,
+                            "content_preview": chunk[:40]
+                        })
+                        self.hash_set.add(chunk_hashes[i])
+                    processed += 1
+
+            except Exception as e:
+                print(f"Error processing {file_path}: {str(e)}")
+                continue
+
+        # 处理完成后持久化存储
+        if self.index is not None:
+            faiss.write_index(self.index, str(self.db_path))
+            pickle.dump(self.metadata_list, open(self.meta_path, "wb"))
+            pickle.dump(self.hash_set, open(self.hash_path, "wb"))
+            print(f"All done! Processed {processed} documents. Index size: {self.index.ntotal}.")
+        else:
+            print("No documents processed!")
+```
 
