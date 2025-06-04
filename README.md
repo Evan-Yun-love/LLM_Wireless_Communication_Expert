@@ -17,6 +17,7 @@
 ## 一、构建通信知识库
 1. 收集文档：
 收集常用3GPP协议以及通信电子书
+
 ![image](https://github.com/user-attachments/assets/c488cfbc-df9a-43ed-8a4b-36b121cb7cac)
 
 3. 文档读取：
