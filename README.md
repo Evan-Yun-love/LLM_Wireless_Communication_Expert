@@ -22,7 +22,7 @@
 
 2. 文档读取：  
 对于docs，用`Docx2txtLoader`读取; 对于pdf，用`PyMuPDFLoader`读取。目前仅支持这两种格式
-```
+```python
 def read_docs(self, file_path: Path):
         """读取指定格式的文档内容
         Args:
@@ -43,7 +43,7 @@ def read_docs(self, file_path: Path):
 
 3. 数据清洗：  
 用正则表达式对文档进行清洗。常见噪声主要是：技术规范编号、商标信息、联系方式、链接、联系方式、版权声明、标题、章节号、页码、页眉页脚等等。因为文档比较少，格式比较固定，所以数据清洗让GPT代劳即可。
-```
+```python
 def docs_clean(self, text: str) -> str:
         """执行多阶段文本清洗处理
         Args:
@@ -79,7 +79,7 @@ def docs_clean(self, text: str) -> str:
 4. 文本切割：  
 由于技术文档上下文关系较强，需要尽量保留段落、句子完整，减少截断，所以使用`RecursiveCharacterTextSplitter`。  
 关于```chunk_size```和```chunk_overlap```的设置，chunk_size的设置要考虑使用的embed_model的大小,因为算力有限，目前采用的模型是```all-MiniLM-L6-v2```，模型比较小，编码维度```dim=384```，所以不宜设置太大的chunk_size，否则向量难以表征chunk语义。所以设置是```chunk_size=800, chunk_overlap=160```，chunk_overlap按照chunk_size的``20%``来计。  
-```
+```python
 def chunks_split(self, text: str) -> List[str]:
         """将文本分割为指定大小的块
         Args:
@@ -87,9 +87,9 @@ def chunks_split(self, text: str) -> List[str]:
         Returns:
             文本块列表，每个块约800字符，块间重叠100字符
         """
-        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=160)
         return splitter.split_text(text)
 ```
-
+5. 
 
 
