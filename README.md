@@ -116,7 +116,7 @@ def chunks_tokenize(self, chunks: List[str], batch_size=256) -> np.ndarray:
             all_vecs.append(vecs)
         return np.vstack(all_vecs)
 ```
-6. 构建FAISS向量库：
+6. 构建FAISS向量库：  
 递归查询目录下的文档，读取pdf,docx，逐文档处理，同时加入重复检测功能，避免多次添加同一文档到向量库中，可以增量、持久化添加索引。
 ```python
 def process_documents(self) -> None:
@@ -178,4 +178,13 @@ def process_documents(self) -> None:
         else:
             print("No documents processed!")
 ```
+
+## 二、向量检索
+
+## 三、Prompt构建
+
+## 四、LLM微调
+
+## 五、性能评估
+
 
