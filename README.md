@@ -215,7 +215,143 @@ vector_db.describe()
 > * `metadata` 为每条文本块的自定义信息（如文件、页码、块号等）
 
 ## 三、Prompt构建
+# 🤖 5G多轮对话RAG检索机器人
 
+本项目基于 **LangChain 0.1+** 框架，实现了一个支持**多轮对话历史、检索增强（RAG）、上下文智能拼接**的 5G 通信专家问答机器人。可灵活对接本地大模型、知识向量库，支持中英文拓展和工程级调用。
+
+---
+
+## ⭐️ 功能亮点
+
+- 💬 支持多轮上下文问答与历史追溯
+- 🔎 动态基于历史+新问题联合检索相关知识块
+- 🧠 支持多类型向量数据库（如 FAISS/BGE/GTE/GLM）
+- 📝 Prompt可灵活扩展（中英双语、结构化输出）
+- ⚙️ 代码分层清晰，易于扩展集成
+
+---
+
+## 🚀 环境依赖
+
+```bash
+pip install langchain-core langchain faiss-cpu numpy
+# 若用中文嵌入模型，可加 transformers sentence-transformers
+````
+
+如需用本地/自定义 LLM、或向量库、请自行准备对应依赖。
+
+---
+
+## 📦 代码结构
+
+* `prompt` ：系统角色与回答格式设定（支持严格自定义）
+* `build_inputs` ：基于历史智能生成检索query，拼装上下文
+* `context_retriever` ：可插拔的上下文获取器
+* `base_chain` ：RAG主流程链（retriever→prompt→llm→输出解析）
+* `history_factory` ：多会话历史存储
+* `chatbot` ：支持多轮历史的完整对话体
+* `trim_history` ：历史长度截断
+* `print_qa_round` ：美化输出单轮问答
+* `print_chat_history` ：打印完整对话历史
+
+---
+
+## 📝 Prompt模板范例
+
+```python
+template_test = """
+<Role>
+You are a 5G wireless communication expert.
+
+<Goal>
+Answer the question using the information in the context below.
+If the context is insufficient, reply exactly: **"I don't know"**.
+
+<Context>
+{context}
+
+<Question>
+{question}
+
+<Instructions>
+1. Explain simply and clearly, as if to a non-expert.  
+2. Give the reference.
+
+<Answer>
+
+"""
+```
+
+如需中英双语输出，可以参考如下方式：
+
+```python
+<Instructions>
+1. Please answer in both English and Chinese, with each version clearly separated.
+2. For each language:
+    - Explain simply and clearly, as if to a non-expert.
+    - Give the reference.
+<Answer>
+English:
+[Your answer in English.]
+
+Chinese:
+[你的中文答案。]
+```
+
+---
+
+## 🌟 用法示例
+
+```python
+# 初始化（请根据你实际情况实现llm和vs）
+# from your_llm import llm
+# from your_vectordb import vs
+
+session_id = "user_42"
+
+# 第1轮
+question1 = "What is beam management?"
+response1 = chatbot.invoke(
+    {"input": question1},
+    config={"configurable": {"session_id": session_id}}
+)
+trim_history(session_id)
+print_qa_round(question1, response1)
+
+# 第2轮
+question2 = "And why is it important?"
+response2 = chatbot.invoke(
+    {"input": question2},
+    config={"configurable": {"session_id": session_id}}
+)
+trim_history(session_id)
+print_qa_round(question2, response2)
+
+# 打印历史问答
+print_chat_history(session_id)
+```
+
+---
+
+## ⚙️ 核心参数说明
+
+| 方法/变量                        | 说明                         |
+| ---------------------------- | -------------------------- |
+| `chat_prompt`                | 聊天prompt模板，支持历史、结构化指令      |
+| `context_retriever`          | 上下文检索与拼装函数                 |
+| `llm`                        | 大语言模型（如ChatGLM4、DeepSeek等） |
+| `vs`                         | 向量检索库（如faiss+BGE）          |
+| `RunnableWithMessageHistory` | 多轮对话链封装                    |
+| `trim_history`               | 对话历史长度截断，防止无限增长            |
+
+---
+
+## 🔧 常见自定义
+
+* 支持更复杂的检索模式（如合并历史human+ai、检索不同知识库等）
+* Prompt可扩展为多语种、表格、Markdown结构
+* 对接流式输出、API接口或UI界面
+* 历史存储可接入Redis、数据库等持久化
 ## 四、LLM微调
 
 ## 五、性能评估
