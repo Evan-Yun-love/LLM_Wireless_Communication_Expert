@@ -1,0 +1,5 @@
+{
+  "index_type": "IndexIVFFlat",
+  "dimension": 384,
+  "ntotal": 18343
+}
