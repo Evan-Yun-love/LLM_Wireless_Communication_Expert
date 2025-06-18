@@ -42,7 +42,7 @@ class DocumentProcessor:
     """
     SUPPORTED_FORMATS = {'.pdf', '.docx'}
 
-    def __init__(self, docs_path: Union[str, Path]):
+    def __init__(self, docs_path: Union[str, Path], chunk_size: int = 800, chunk_overlap: int = 160, min_length = 50):
         """
         初始化文档处理器
         
@@ -57,6 +57,9 @@ class DocumentProcessor:
         self.cleaned_documents: List[PageDocument] = []
         self.chunks: List[str] = []
         self.chunk_metadata: List[dict] = []
+        self.chunks_size = chunk_size
+        self.chunks_overlap = chunk_overlap
+        self.min_length = min_length
 
     def _get_files(self) -> List[str]:
         """
@@ -102,11 +105,13 @@ class DocumentProcessor:
         遍历所有PageDocument对象，应用clean_text方法清洗文本内容
         将清洗结果存储到cleaned_documents列表
         """
+        self.cleaned_documents = []
         for doc in self.documents:
             cleaned = self.clean_text(doc.content)
-            self.cleaned_documents.append(PageDocument(content=cleaned, metadata=doc.metadata))
+            if cleaned.strip():  # 只保留清洗后内容不为空的页面
+                self.cleaned_documents.append(PageDocument(content=cleaned, metadata=doc.metadata))
 
-    def split_documents(self, chunk_size: int = 800, chunk_overlap: int = 160) -> None:
+    def split_documents(self) -> None:
         """
         将清洗后的文档分割成文本块
         
@@ -116,16 +121,25 @@ class DocumentProcessor:
             
         使用递归字符分割器处理每个文档，记录分块内容及其元数据
         """
-        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunks_size, 
+            chunk_overlap=self.chunks_overlap,
+            separators=["\n\n", "\n", ".", " ", ""],)
+        
+        skipped = 0
         for doc in self.cleaned_documents:
             chunks = splitter.split_text(doc.content)
             # 为每个块添加索引信息到元数据
             for i, chunk in enumerate(chunks):
+                if len(chunk.strip())<self.min_length:
+                    skipped += 1
+                    continue
                 self.chunks.append(chunk)
                 meta = dict(doc.metadata)
                 meta["chunk_idx"] = i
                 self.chunk_metadata.append(meta)
-
+        if skipped>0:
+            print(f"[INFO]共跳过{skipped}个过短的chunk")
     def run_all(self):
         """
         执行完整处理流程
@@ -173,7 +187,7 @@ class DocumentProcessor:
         print(f"[INFO] 成功加载 {len(self.chunks)} 个 chunk")
 
     @staticmethod
-    def clean_text(text: str) -> str:
+    def clean_text(text: str, page_num: int = 10) -> str:
         """
         执行多级文本清洗和标准化处理
         
@@ -193,6 +207,25 @@ class DocumentProcessor:
         # 统一换行符和空格
         text = text.replace('\r\n', '\n').replace('\r', '\n')
         text = text.replace('ﬁ', 'fi').replace('ﬂ', 'fl').replace('–', '-').replace('—', '-').replace(' ', ' ')
+        
+        if page_num is not None and page_num <= 5:
+            irrelevant_patterns = [
+                r'^\s*(Table of Contents|Contents|目录)\s*$',    
+                r'^\s*(Acknowledgements?|致谢)\s*$',             
+                r'^\s*(Preface|Foreword|序言|前言)\s*$',         
+                r'^\s*(Index|Appendix|附录)\s*$',               
+            ]
+            for pat in irrelevant_patterns:
+                if re.search(pat, text, re.IGNORECASE | re.MULTILINE):
+                    return ""
+            # 目录点线页过滤（仅前几页判定，且比例设高点）
+            dot_leader_lines = re.findall(r'^\s*[\d\.]{1,7}.*\.{3,}.*\d+\s*$', text, flags=re.MULTILINE)
+            if len(text.splitlines()) > 0 and len(dot_leader_lines) / len(text.splitlines()) >= 0.8 and len(dot_leader_lines) >= 5:
+                return ""
+
+        # 统一换行符和空格
+        text = re.sub(r'(?<=\b)(?:[a-zA-Z]\s){2,}[a-zA-Z](?=\b)', lambda m: m.group(0).replace(' ', ''), text)
+        text = re.sub(r'(?:^.{1,20}\n){3,}', lambda m: m.group(0).replace('\n', ' '), text, flags=re.MULTILINE)
         
         # 修复被空格分隔的单词
         text = re.sub(r'(?<=\b)(?:[a-zA-Z]\s){2,}[a-zA-Z](?=\b)', lambda m: m.group(0).replace(' ', ''), text)
@@ -233,3 +266,9 @@ class DocumentProcessor:
         text = re.sub(r'[^\x00-\x7F]+', '', text)
 
         return text.strip()
+    
+
+if __name__ == "__main__":
+    dp = DocumentProcessor(docs_path="./documents", chunk_size=2000, chunk_overlap = 200)
+    dp.run_all()
+    dp.save_chunks_and_metadata(save_path="chunks_size_2000_overlap_200_min_50.json")
